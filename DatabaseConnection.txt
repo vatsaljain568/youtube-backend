@@ -1,0 +1,9 @@
+1) Create a Project
+2) Check Network access (Basically jaha sae req allow karni hai unki IP)
+3) create User that can read n write any database (database access)
+4) Take that string from database and store it inside the .env file with your password
+5) Database sae jabh bhi baat karo  use 2 things ->
+    . Try-Catch
+    . Async-Await cuz database dusre continent mai hai
+
+
