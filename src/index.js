@@ -1,9 +1,22 @@
 import dotenv from "dotenv";
+// This is to load environment variables from a .env file into process.env
 dotenv.config();
 
 
 import connectDb from "./db/index.js";
-connectDb();
+// Jabh bhi ek async method complete hota hai , tabh vo ek promise return karta hai
+import app from "./app.js";
+
+connectDb()
+.then(() => {
+    app.listen(process.env.port || 8000, () => {
+    console.log(`Server is running on port ${process.env.port}`);
+});
+
+})
+.catch((error) => {
+    console.error("Database connection failed:", error);
+});
 
 
 /*
