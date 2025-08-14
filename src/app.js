@@ -17,16 +17,19 @@ app.use(express.static('public'));
 // cookie parser middleware
 app.use(cookieParser());
 
-app.get('/', (req, res) => {
-    res.send('Hello, World!');
-})
+// routes import
+// Mann sae koyi bhi name tabh hi dae skte hai jabh export default ho raha ho
+import userRouter from './routes/user.routes.js';
 
-app.get('/youtube', (req, res) => {
-    res.send('Hello, Youtube!');
-})
+// routes declaration
+app.use("/api/v1/users", userRouter); 
 
 export default app;
 
+
+// app.get('/', (req, res) => {
+//     res.send('Welcome to the API');
+// })
 
 // Explain middleware in express
 // Middleware in Express is a function that has access to the request object (req), the response object (res), and the next middleware function in the application’s request-response cycle. Middleware functions can perform a variety of tasks, such as executing code, modifying the request and response objects, ending the request-response cycle, and calling the next middleware function in the stack. They are used for tasks like logging, authentication, parsing request bodies, handling CORS, and serving static files. Middleware can be applied globally to all routes or to specific routes, allowing for flexible and modular application design. In Express, middleware is a powerful feature that helps in building robust and maintainable web applications by separating concerns and enhancing code reusability.
