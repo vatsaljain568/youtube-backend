@@ -2,6 +2,8 @@
 //  This is called Higher Order Function
 // This is a Wrapper function that takes another function as an argument and returns a new function that handles errors.
 
+// Dekho apne ko baar baar database sae connect toh karna hi hai so baar baar try-catch and async await karne ki zarurat nahi hai Instead we can create a wrapper.
+
 
 const asyncHandler = (requestHandler) => {
     (req, res, next) => {
