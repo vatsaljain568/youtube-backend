@@ -106,3 +106,47 @@ userSchema.methods.generateRefreshToken = function () {
 }
 
 export const User = mongoose.model("User", userSchema);
+
+
+/*
+JWT, Access Token, Refresh Token — Quick Notes ->
+
+JWT (JSON Web Token)
+Compact, signed token used for authentication/authorization.
+Structure: header.payload.signature
+Header: token type & algorithm.
+Payload: public claims (user id, role, expiry).
+Signature: proves data wasn’t tampered with (integrity).
+Signed ≠ encrypted — payload is readable but protected against changes.
+Created & verified using libraries like jsonwebtoken.
+
+
+
+Access Token
+A JWT specifically used to access protected resources.
+Short-lived (e.g., 5–15 min) to limit damage if stolen.
+Sent with each request (usually in Authorization: Bearer <token>).
+Contains enough claims for the server to identify the user & permissions.
+
+
+
+Refresh Token
+Long-lived token (days/weeks) used to obtain new access tokens.
+Sent only when the access token expires.
+Should be stored securely (e.g., HttpOnly Secure cookie).
+If stolen, attacker can keep getting new access tokens — must be well protected.
+
+
+Why Access Token is Short-lived & Refresh Token is Long-lived
+Access token: Higher exposure (sent on every request) → shorter life reduces risk.
+Refresh token: Lower exposure (used rarely) → longer life improves user experience.
+
+
+Auth Flow Example
+User logs in → server issues:
+Access token (short life).
+Refresh token (long life).
+Access token sent with every API request.
+When access token expires → client sends refresh token to get a new one.
+When refresh token expires → user must log in again.
+*/
