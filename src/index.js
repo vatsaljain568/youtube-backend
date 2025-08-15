@@ -1,6 +1,13 @@
 import dotenv from "dotenv";
+import path from "path";
+
+
+const envPath = path.resolve(process.cwd(), ".env");
+console.log("Loading .env from:", envPath);
+
+dotenv.config({ path: envPath });
+
 // This is to load environment variables from a .env file into process.env
-dotenv.config();
 
 
 import connectDb from "./db/index.js";
@@ -9,7 +16,7 @@ import app from "./app.js";
 
 connectDb()
 .then(() => {
-    app.listen(process.env.PORT || 8000, () => {
+    app.listen(process.env.PORT || 6000, () => {
     console.log(`Server is running on port ${process.env.PORT}`);
 });
 
