@@ -6,6 +6,27 @@ import { ApiResponse } from '../utils/ApiResponse.js'
 
 // MONGODB mai no-sql database hote hai
 
+// Because iss function ko apan baar baar use karne wale hai
+const generateAccessAndRefreshTokens = async (userId) => {
+    try {
+        
+        const user = User.findById(userId)
+        const accessToken = user.generateAccessToken();
+        const refreshToken = user.generateRefreshToken();
+        // Database mai Refresh token ko store karna padega
+        user.refreshToken = refreshToken;
+
+        await user.save({ validateBeforeSave: false });
+        return {
+            accessToken,
+            refreshToken
+        }
+
+    } catch (error) {
+        throw new ApiError(500, "Failed to generate tokens");
+    }
+}
+
 // High-level function to register a user
 const registerUser = asyncHandler(async (req, res) => {
 
@@ -34,7 +55,7 @@ const registerUser = asyncHandler(async (req, res) => {
     if (
         [fullName, email, username, password].some((field) => field?.trim() === "")
     ) {
-        throw new ApiError("All fields are required",400)
+        throw new ApiError("All fields are required", 400)
     }
 
 
@@ -44,7 +65,7 @@ const registerUser = asyncHandler(async (req, res) => {
     })
 
     if (existedUser) {
-        throw new ApiError("User with email or username already exists",409)
+        throw new ApiError("User with email or username already exists", 409)
     }
 
     // check for images and avatar
@@ -53,19 +74,19 @@ const registerUser = asyncHandler(async (req, res) => {
 
 
     if (!avatarLocalPath) {
-        throw new ApiError("Avatar file is required",408)
+        throw new ApiError("Avatar file is required", 408)
     }
 
     // upload them to cloudinary, avatar
     const avatar = await uploadOnCloudinary(avatarLocalPath)
     console.log("avatar: ", avatar);
 
-    
+
     // Agar yaha cloudinary mai kuch nahi jayega then vo ek empty string return karega
     const coverImage = await uploadOnCloudinary(localCoverImgPath)
 
     if (!avatar) {
-        throw new ApiError("Issue on uploading to cloudinary ",400)
+        throw new ApiError("Issue on uploading to cloudinary ", 400)
     }
 
     // create user object - create entry in db
@@ -79,17 +100,101 @@ const registerUser = asyncHandler(async (req, res) => {
     })
 
     // Thoda sa weird syntax
+    // basically .select sae vo fields ko hata rahe hai jo hume nahi chahiye
     const createdUser = await User.findById(user._id).select(
         "-password -refreshToken"
     )
 
     if (!createdUser) {
-        throw new ApiError("Something went wrong while registering ths user",500)
+        throw new ApiError("Something went wrong while registering ths user", 500)
     }
 
     return res.status(201).json(
-        new ApiResponse(200,"User Registered successfully",createdUser)
+        new ApiResponse(200, "User Registered successfully", createdUser)
     )
 });
 
-export { registerUser };
+const loginUser = asyncHandler(async (req, res) => {
+    // req body sae data lae aoo
+    // username or email
+    // find user in db
+    // if user not found then throw error
+    // if found then check password
+    // if password is correct then generate access token and refresh token
+    // send cookies 
+
+    const { username, email, password } = req.body;
+
+    // validation
+    if (!(username || email)) {
+        throw new ApiError(400, "Username or email is required")
+    }
+
+    const user = await User.findOne({
+        $or: [{ email }, { username }]
+    })
+
+    if(!user) {
+        throw new ApiError(404, "User not found")
+    }
+    const isPasswordMatched = await user.isPasswordCorrect(password);
+
+    if (!isPasswordMatched) {
+        throw new ApiError(401, "Invalid credentials")
+    }
+
+    const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(user._id)
+
+    // Now apne paas jo abhi user hai vo purana wala hai uske paas refresh token nahi hai so i have now 2 options ->
+    const loggedInUser = await User.findById(user._id).select(
+        "-password -refreshToken"
+    );
+
+    // Now we will send the cookies
+    const options = {
+        httpOnly: true, // now frontend sae koi bhi javascript cookie ko edit nahi kar sakta
+        secure: true // only send cookie over https
+    }
+
+    res.status(200)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, options)
+    .json(new ApiResponse(200, loggedInUser ,"User logged in successfully"));
+})
+
+const logoutUser = asyncHandler(async (req, res) => {
+    // 2 hi kaam karne hai that is remove the cookies and remove the refresh token from the database
+
+    // Yea apan tabh hi karenge jab apan user true logged in ho uske liye we will check using middleware
+    await User.findByIdAndUpdate(
+        req.user._id,
+        // now update karna kya hai
+        {
+            $set: {
+                refreshToken: undefined
+            }
+        },
+        {
+            new: true // return the updated user
+        }
+    );
+
+    const options = {
+        httpOnly: true,
+        secure: true
+    }
+
+    return res.status(200)
+    .clearCookie("accessToken", options)
+    .clearCookie("refreshToken", options)
+    .json(
+        new ApiResponse(200, "User logged out successfully")
+    );
+
+})
+
+export {
+    registerUser,
+    loginUser,
+    logoutUser
+};
