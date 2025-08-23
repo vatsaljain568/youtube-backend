@@ -3,7 +3,6 @@ import { registerUser, loginUser, logoutUser, refreshAccessToken } from '../cont
 import { upload } from '../middlewares/multer.middleware.js';
 import { verifyJWT } from '../middlewares/auth.middleware.js';
 
-
 const router = Router();
 
 router.route("/register").post(
@@ -13,6 +12,7 @@ router.route("/register").post(
             name: "avatar",
             maxCount: 1
         },
+        
         {
             name: "coverImage",
             maxCount: 1
@@ -23,6 +23,8 @@ router.route("/register").post(
 
 router.route("/login").post(loginUser);
 router.route("/logout").post(verifyJWT, logoutUser);
+
+// For frontend Devs to refresh access token
 router.route("/refresh-token").post(refreshAccessToken);
 
 export default router;

@@ -1,12 +1,11 @@
-import { asyncHandler } from '../utils/asyncHandler.js';
+import { asyncHandler } from '../utils/asyncHandler.js'
 import { ApiError } from '../utils/ApiError.js'
 import { User } from '../models/user.model.js'
 import { uploadOnCloudinary } from '../utils/cloudinary.js'
 import { ApiResponse } from '../utils/ApiResponse.js'
-import jwt from 'jsonwebtoken';
+import jwt from 'jsonwebtoken'
 
 // MONGODB mai no-sql database hote hai
-
 // Because iss function ko apan baar baar use karne wale hai
 const generateAccessAndRefreshTokens = async (userId) => {
     try {
@@ -14,6 +13,7 @@ const generateAccessAndRefreshTokens = async (userId) => {
         const user = await User.findById(userId)
         const accessToken = user.generateAccessToken();
         const refreshToken = user.generateRefreshToken();
+
         // Database mai Refresh token ko store karna padega
         user.refreshToken = refreshToken;
 
@@ -138,6 +138,7 @@ const loginUser = asyncHandler(async (req, res) => {
     if(!user) {
         throw new ApiError(404, "User not found")
     }
+
     const isPasswordMatched = await user.isPasswordCorrect(password);
 
     if (!isPasswordMatched) {
@@ -216,6 +217,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
     
         if (incomingRefreshToken !== user?.refreshToken) {
             throw new ApiError(401, "Refresh token is expired or used")
+            // logout user because refresh token is expired
             
         }
     
@@ -224,7 +226,8 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
             secure: true
         }
     
-        const {accessToken, newRefreshToken} = await generateAccessAndRefereshTokens(user._id)
+        // This is more secure to get the new refresh token.
+        const {accessToken, newRefreshToken} = await generateAccessAndRefreshTokens(user._id)
     
         return res
         .status(200)
