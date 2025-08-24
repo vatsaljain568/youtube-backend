@@ -4,6 +4,7 @@ import { User } from '../models/user.model.js'
 import { uploadOnCloudinary } from '../utils/cloudinary.js'
 import { ApiResponse } from '../utils/ApiResponse.js'
 import jwt from 'jsonwebtoken'
+import mongoose from 'mongoose'
 
 // MONGODB mai no-sql database hote hai
 // Because iss function ko apan baar baar use karne wale hai
@@ -310,7 +311,7 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
 
     if (!avatar.url) {
         throw new ApiError(400, "Error while uploading avatar on cloudinary")
-        
+
     }
 
     const user = await User.findByIdAndUpdate(
@@ -326,13 +327,13 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
     ).select("-password")
 
     return res
-    .status(200)
-    .json(
-        new ApiResponse(200, user, "Avatar image updated successfully")
-    )
+        .status(200)
+        .json(
+            new ApiResponse(200, user, "Avatar image updated successfully")
+        )
 })
 
-const updateUserCoverImage = asyncHandler(async(req, res) => {
+const updateUserCoverImage = asyncHandler(async (req, res) => {
     const coverImageLocalPath = req.file?.path
 
     if (!coverImageLocalPath) {
@@ -343,22 +344,160 @@ const updateUserCoverImage = asyncHandler(async(req, res) => {
 
     if (!coverImage.url) {
         throw new ApiError(400, "Error while uploading on avatar")
-        
+
     }
     const user = await User.findByIdAndUpdate(
         req.user?._id,
         {
-            $set:{
+            $set: {
                 coverImage: coverImage.url
             }
         },
-        {new: true}
+        { new: true }
     ).select("-password")
 
     return res
+        .status(200)
+        .json(
+            new ApiResponse(200, user, "Cover image updated successfully")
+        )
+})
+
+
+// An aggregation pipeline is an array of stages. Each stage performs an operation on the data and passes the result to the next stage.
+
+const getUserChannelProfile = asyncHandler(async (req, res) => {
+
+    const { username } = req.params
+
+    if (!username?.trim()) {
+        throw new ApiError(400, "Username is required")
+    }
+
+    // one method
+    // const channel = await User.findOne({username})
+    // but iske baad user ki id pae aggregation karni padegi to get the subscribers n all so we can directly use aggregation
+
+    // aggregate pipelines ek array return karta hai i.e array of objects but apne case mai ek hi object return hoga bas array mai
+    const channel = await User.aggregate([
+        {
+            // abb apne ko apna user mill jayega
+            $match: {
+                username: username?.toLowerCase()
+            }
+        },
+        {
+            $lookup: {
+                // because mongoDB mai ese save hota hai schema plural and all lower case
+                from: "subscriptions",
+                localField: "_id",
+                foreignField: "channel",
+                as: "subscribers"
+            }
+        },
+        {
+            $lookup: {
+                from: "subscriptions",
+                localField: "_id",
+                foreignField: "subscriber",
+                as: "subscribedTo"
+            }
+        },
+        // yea dono filed aachuke hai now humne inhe count/add karke display karwana hai bas
+        {
+            // apne user model mai additional fields daal dega
+            $addFields: {
+                subscriberCount: {
+                    $size: "$subscribers" // count kardega
+                },
+
+                channelsSubscribedToCount: {
+                    $size: "$subscribedTo"
+                },
+
+                isSubscribed: {
+                    $cond: {
+                        // yea $in array and object dono mai dekh leta hai
+                        if: { $in: [req.user?._id, "$subscribers.subscriber"] },
+                        then: true,
+                        else: false
+                    }
+                }
+            }
+        },
+        {
+            $project: {
+                fullName: 1,
+                username: 1,
+                subscriberCount: 1,
+                channelsSubscribedToCount: 1,
+                isSubscribed: 1,
+                avatar: 1,
+                coverImage: 1,
+                email: 1
+            }
+        }
+    ])
+
+    if (!channel?.length) {
+        throw new ApiError(404, "channel does not exists")
+    }
+
+    return res
+        .status(200)
+        .json(
+            new ApiResponse(200, channel[0], "User channel fetched successfully")
+        )
+})
+
+const getWatchHistory = asyncHandler(async (req, res) => {
+    // req.users._id sae monoogose mongoDB ki objID string bhejta hai
+    const user = await User.aggregate([
+        {
+            $match: {
+                _id: new mongoose.Types.ObjectId(req.user._id)
+            }
+        },
+        {
+            $lookup: {
+                // Basically kaha lookup karna hai
+                from: "videos",
+                localField: "watchHistory",
+                foreignField: "_id",
+                as: "watchHistory",
+                // videos model kae anadar apan nae owner dala tha that is refrencing from use fo we have to add a sub-pipline for that
+                pipeline: [
+                    {
+                        $lookup: {
+                            from: "users",
+                            localField: "owner",
+                            foreignField: "_id",
+                            as: "owner",
+                            pipeline: [{
+                                $project: {
+                                    fullName: 1,
+                                    username: 1,
+                                    avatar: 1
+                                }
+                            }]
+                        }
+                    },
+                    {
+                        $addFields: {
+                            // abb frontend wale kae paas sida array ka phela object chale jayega usse loop lagane ki jarurat nahi hai
+                            owner: {
+                                $first: "$owner"
+                            }
+                        }
+                    }
+                ]
+            }
+        }
+    ])
+    return res
     .status(200)
     .json(
-        new ApiResponse(200, user, "Cover image updated successfully")
+        new ApiResponse(200, user[0].watchHistory, " Watch history fetched successfully " )
     )
 })
 
@@ -371,5 +510,7 @@ export {
     getCurrentUser,
     updateAccountDetails,
     updateUserAvatar,
-    updateUserCoverImage
+    updateUserCoverImage,
+    getUserChannelProfile,
+    getWatchHistory
 };
